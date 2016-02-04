@@ -10,6 +10,7 @@
  */
 #ifndef TWOBLUECUBES_SINGLE_INCLUDE_CATCH_HPP_INCLUDED
 #define TWOBLUECUBES_SINGLE_INCLUDE_CATCH_HPP_INCLUDED
+#include "shared/pubout.h"
 
 #define TWOBLUECUBES_CATCH_HPP_INCLUDED
 
@@ -1592,6 +1593,21 @@ std::string toString( std::nullptr_t );
 
 namespace Detail {
 
+    template <typename T>
+    class IsPubConvertible {
+        struct no {};
+
+        template <typename T2>
+        static decltype(pubout::pub(std::declval<const T &>()))
+        test(int);
+
+        template <typename T2>
+        static no test(...);
+
+    public:
+        enum { value = !std::is_same<no, decltype(test<T>(0))>::value };
+    };
+
     extern const std::string unprintableString;
 
     struct BorgType {
@@ -1613,13 +1629,30 @@ namespace Detail {
         enum { value = sizeof( testStreamable(s << t) ) == sizeof( TrueType ) };
     };
 
+    template <typename T, bool Enabled = IsPubConvertible<T>::value>
+    struct PubStringMaker {
+        static std::string convert( T const& ) { return unprintableString; }
+    };
+
+    template<typename T>
+    struct PubStringMaker<T,true>
+    {
+        static std::string convert( T const& v )
+        {
+            const str s = pubout::pub(v).to_str();
+            return std::string(s.cstr(), s.len());
+        }
+    };
+
 #if defined(CATCH_CONFIG_CPP11_IS_ENUM)
     template<typename T,
              bool IsEnum = std::is_enum<T>::value
              >
     struct EnumStringMaker
     {
-        static std::string convert( T const& ) { return unprintableString; }
+        static std::string convert( T const& v) {
+            return PubStringMaker<T>::convert(v);
+        }
     };
 
     template<typename T>
@@ -5755,7 +5788,7 @@ using TestCaseTracking::IndexTracker;
 namespace Catch {
 
     // Report the error condition then exit the process
-    inline void fatal( std::string const& message, int exitCode ) {
+    inline void catch_fatal( std::string const& message, int exitCode ) {
         IContext& context = Catch::getCurrentContext();
         IResultCapture* resultCapture = context.getResultCapture();
         resultCapture->handleFatalErrorCondition( message );
@@ -5798,8 +5831,8 @@ namespace Catch {
         static void handleSignal( int sig ) {
             for( std::size_t i = 0; i < sizeof(signalDefs)/sizeof(SignalDefs); ++i )
                 if( sig == signalDefs[i].id )
-                    fatal( signalDefs[i].name, -sig );
-            fatal( "<unknown signal>", -sig );
+                    catch_fatal( signalDefs[i].name, -sig );
+            catch_fatal( "<unknown signal>", -sig );
         }
 
         FatalConditionHandler() : m_isSet( true ) {
