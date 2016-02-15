@@ -1598,7 +1598,7 @@ namespace Detail {
         struct no {};
 
         template <typename T2>
-        static decltype(pubout::pub(std::declval<const T &>()))
+        static decltype(pub(std::declval<const T &>()))
         test(int);
 
         template <typename T2>
@@ -1639,7 +1639,7 @@ namespace Detail {
     {
         static std::string convert( T const& v )
         {
-            const str s = pubout::pub(v).to_str();
+            const str s = pub(v).to_str();
             return std::string(s.cstr(), s.len());
         }
     };
